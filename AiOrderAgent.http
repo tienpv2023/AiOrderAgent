@@ -1,0 +1,6 @@
+@AiOrderAgent_HostAddress = http://localhost:5022
+
+GET {{AiOrderAgent_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

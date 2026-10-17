@@ -1,0 +1,21 @@
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: aiorderagent-postgres
+    environment:
+      POSTGRES_DB: aiorderagent
+      POSTGRES_USER: aiuser
+      POSTGRES_PASSWORD: local_dev_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aiuser -d aiorderagent"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:
