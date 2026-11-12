@@ -1,5 +1,266 @@
 # AiOrderAgent — .NET AI Agent & RAG System
 
+## 1. Project Overview
+
+**AiOrderAgent** is an AI-powered application built on the .NET platform, integrating Large Language Models (LLMs), PostgreSQL, and pgvector to search for information, retrieve relevant documents, and generate answers based on available data.
+
+The project focuses on building an AI system that combines data retrieval capabilities with large language models to minimize unsupported or fabricated responses and provide references for generated answers.
+
+This project serves as a practical implementation of AI techniques within a real-world .NET application architecture, demonstrating knowledge of API development, database integration, asynchronous processing, and system design.
+
+## 2. Technology Stack
+
+- **Backend:** C#, .NET / ASP.NET Core Web API
+- **AI / LLM:** OpenAI API
+- **Text Embedding:** OpenAI `text-embedding-3-small`
+- **Chat Model:** OpenAI `gpt-4o-mini`
+- **Database:** PostgreSQL
+- **Vector Database:** pgvector
+- **Database Access:** Npgsql
+- **Search:** PostgreSQL Full-Text Search, Vector Search, Hybrid Search
+- **Ranking:** Reciprocal Rank Fusion (RRF)
+- **API Testing:** Swagger / OpenAPI
+
+## 3. Key Features
+
+### 3.1. AI Agent with Function Calling
+
+Implement an AI Agent capable of invoking functions to retrieve business data instead of generating answers from unverified information.
+
+**Processing workflow:**
+
+1. The user submits a question.
+2. The LLM analyzes the request.
+3. The Agent invokes the appropriate function, such as `GetOrderStatus`.
+4. The function queries data from the system.
+5. The execution result is returned to the LLM.
+6. The LLM generates a response based on the actual retrieved data.
+
+### 3.2. Retrieval-Augmented Generation (RAG)
+
+Implement a RAG pipeline to retrieve relevant information before providing contextual data to the LLM.
+
+**Pipeline:**
+
+`Question → Embedding → Retrieval → Context Building → LLM → Answer`
+
+**Key steps:**
+
+- Convert the user's question into a vector embedding.
+- Search for relevant document chunks in PostgreSQL/pgvector.
+- Retrieve matching document chunks as contextual information.
+- Send the question and retrieved context to the LLM.
+- Generate an answer based on the retrieved information.
+
+### 3.3. Hybrid Search
+
+Combine two search approaches to improve document retrieval accuracy:
+
+- **Keyword Search:** Perform keyword-based searches using PostgreSQL Full-Text Search.
+- **Vector Search:** Perform semantic similarity searches using pgvector.
+- **Reciprocal Rank Fusion (RRF):** Combine rankings from both search result lists.
+- **Reranking:** Reorder candidate documents before building the final context.
+
+**Processing workflow:**
+
+`Question → Query Processing → Keyword Search + Vector Search → RRF → Security Filter → Reranking → Top 5 Documents`
+
+### 3.4. Document Ingestion and Embedding
+
+Implement a document ingestion pipeline to prepare data for RAG processing:
+
+- Store document chunks in the `document_chunks` table.
+- Generate vector embeddings for document content.
+- Store embedding vectors in PostgreSQL using pgvector.
+- Retrieve previously embedded documents to support semantic search.
+
+### 3.5. Security and Context Control
+
+Implement a document filtering stage before passing retrieved data to the LLM to prevent unauthorized documents from being included in the context.
+
+In multi-user or multi-tenant environments, the filtering mechanism should be integrated with authenticated user identities and authorization rules directly at the data query layer.
+
+## 4. System Architecture
+
+```text
+                    User
+                      |
+                      v
+                ASP.NET Core
+                   Web API
+                      |
+             +--------+--------+
+             |                 |
+             v                 v
+         AI Agent         RAG Pipeline
+             |                 |
+             v                 |
+      Function Calling         |
+             |                 |
+             v                 v
+       Business DB       Keyword Search
+                               |
+                          Vector Search
+                               |
+                         +-----+-----+
+                               |
+                          Hybrid Search
+                               |
+                               v
+                              RRF
+                               |
+                               v
+                         Security Filter
+                               |
+                               v
+                            Reranker
+                               |
+                               v
+                         Context Builder
+                               |
+                               v
+                           OpenAI LLM
+                               |
+                               v
+                        Answer + Sources
+```
+
+## 5. Database Design
+
+The `document_chunks` table stores document chunks used for information retrieval.
+
+| Column | Description |
+|---|---|
+| `id` | Unique identifier of the document chunk |
+| `document_name` | Name of the source document |
+| `content` | Text content of the document chunk |
+| `embedding` | Vector embedding of the document content |
+| `created_at` | Record creation timestamp |
+| `tenant_id` | Tenant identifier for data isolation, if implemented |
+
+pgvector supports vector storage and similarity searches. HNSW indexes can be used to optimize vector search performance on large datasets.
+
+## 6. Project Structure
+
+The following is a reference structure based on the system's main components:
+
+```text
+AiOrderAgent/
+├── Controllers/
+│   ├── ChatController.cs
+│   └── RagController.cs
+├── Services/
+│   ├── AiAgentService.cs
+│   ├── EmbeddingService.cs
+│   ├── DocumentIngestionService.cs
+│   ├── PostgresVectorStore.cs
+│   ├── VectorSearchService.cs
+│   ├── HybridSearchService.cs
+│   ├── DocumentSecurityFilter.cs
+│   ├── DocumentReranker.cs
+│   ├── ContextBuilder.cs
+│   ├── LlmService.cs
+│   └── RagAnswerService.cs
+├── Tools/
+│   └── GetOrderStatusTool.cs
+├── Program.cs
+├── appsettings.json
+└── README.md
+```
+
+File names and project structure may vary depending on the current implementation.
+
+## 7. Installation and Setup
+
+### Prerequisites
+
+- .NET SDK compatible with the project's target framework.
+- PostgreSQL.
+- pgvector installed and enabled in the database.
+- OpenAI API key.
+
+### Step 1: Configure the Database
+
+Update the PostgreSQL connection string in the application configuration or User Secrets.
+
+### Step 2: Configure the OpenAI API Key
+
+Set the `OPENAI_API_KEY` environment variable.
+
+Never commit API keys to Git or include actual credentials in the README file.
+
+### Step 3: Build the Project
+
+```bash
+dotnet restore
+dotnet build
+```
+
+### Step 4: Run the Application
+
+```bash
+dotnet run
+```
+
+Open the Swagger URL displayed in the console to explore and test the available APIs.
+
+## 8. Representative API Endpoint
+
+### RAG Ask
+
+`POST /api/rag/ask`
+
+**Request:**
+
+```json
+{
+  "question": "Where is order ORD-1024 currently?"
+}
+```
+
+**Example Response:**
+
+```json
+{
+  "answer": "The answer is generated based on the retrieved documents."
+}
+```
+
+The actual response depends on the database content and the response structure implemented in the current version.
+
+## 9. Technical Skills Demonstrated
+
+This project provides hands-on experience with key technologies and concepts involved in developing AI-powered .NET applications:
+
+- Designing RESTful APIs using ASP.NET Core.
+- Implementing Dependency Injection and separation of concerns across services.
+- Handling asynchronous I/O operations using `async/await` and `CancellationToken`.
+- Integrating OpenAI APIs for text embeddings and response generation.
+- Designing Retrieval-Augmented Generation (RAG) pipelines.
+- Implementing Hybrid Search with Keyword Search and Vector Search.
+- Combining search rankings using Reciprocal Rank Fusion (RRF).
+- Querying PostgreSQL and working with pgvector.
+- Implementing document access control and context construction for LLMs.
+- Handling exceptions, application configuration, and API testing.
+
+## 10. Future Improvements
+
+- Implement comprehensive source references in API responses.
+- Improve API error handling, timeout management, rate limiting, and controlled retry mechanisms.
+- Enhance document chunking strategies and Vietnamese language search quality.
+- Replace keyword-based reranking with a suitable semantic reranking model.
+- Implement authorization and tenant isolation at the database query layer.
+- Add unit tests, integration tests, and retrieval quality evaluation.
+- Introduce logging, monitoring, and latency measurements for each pipeline stage.
+
+## 11. Project Objectives
+
+AiOrderAgent aims to build an AI-powered application that can be integrated into real-world business systems by combining the strengths of .NET backend development with modern AI technologies, including LLMs, RAG, and Hybrid Search.
+
+The project is designed as a technical portfolio demonstrating backend architecture design, AI integration capabilities, and the ability to address practical engineering challenges when developing modern AI-powered applications.
+
+# AiOrderAgent — .NET AI Agent & RAG System
+
 ## 1. Giới thiệu dự án
 
 **AiOrderAgent** là dự án ứng dụng AI được xây dựng trên nền tảng .NET, tích hợp Large Language Model (LLM), PostgreSQL và pgvector để tìm kiếm thông tin, truy xuất tài liệu liên quan và tạo câu trả lời dựa trên dữ liệu.
